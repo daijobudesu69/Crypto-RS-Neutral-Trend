@@ -1,0 +1,131 @@
+name: RNT bot
+
+# Pola watcher dari Crypto-MEX: cron GitHub tidak andal (terukur ~25% jadwal yang
+# benar-benar jalan, jeda terburuk hampir 5 jam). Jadi cron TIDAK bertugas
+# mengecek; tugasnya hanya MENYALAKAN watcher yang hidup ~5,5 jam dan mengecek
+# sendiri tiap 10 menit. Dengan concurrency group, jadwal yang jatuh saat
+# watcher masih hidup ANTRE lalu langsung mulai begitu yang lama selesai.
+#
+# Di repo RMF cron ternyata hanya terpicu tiap 3-6 jam (terukur 4-5 Okt 2026),
+# jadi watcher yang selesai bisa meninggalkan celah berjam-jam. Karena itu watcher
+# (mode loop) MENYALAKAN PENGGANTINYA SENDIRI saat anggaran waktunya habis:
+# dispatch bot.yml lewat GITHUB_TOKEN -> antre di concurrency group -> mulai begitu
+# job ini selesai. Cron dan watchdog tetap ada sebagai cadangan.
+#
+# Satu siklus (run_cycle.py) idempoten: job harian hanya jalan sekali per hari UTC
+# (setelah 00:02 UTC = 07:02 WIB). Job harian ±6-8 menit (candle 450 hari ±230 perp).
+#
+# Repo publik: menit Actions tidak dibatasi. Repo privat: watcher nonstop butuh
+# ~4.500 menit/bulan, melebihi kuota gratis 2.000 (lihat docs/SETUP.md).
+on:
+  schedule:
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "once = satu siklus lalu selesai; loop = pantau ~5,5 jam"
+        type: choice
+        options: [once, loop]
+        default: once
+
+permissions:
+  contents: write
+  actions: write      # dispatch watcher pengganti (gh workflow run bot.yml)
+
+concurrency:
+  group: rnt-state
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0          # rebase di save_state.sh butuh riwayat penuh
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Watcher
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GSHEET_WEBHOOK_URL: ${{ secrets.GSHEET_WEBHOOK_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
+          RNT_QUIET_IDLE: "1"
+          MODE: ${{ inputs.mode || 'loop' }}
+          # Nama secret harus sama dengan execution.agent_secret di config.yaml
+          # (dicek tests/test_repo.py). Kosong = live tidak bisa jalan, paper tetap.
+          AGENT_KEY_IN: ${{ secrets.HYPE_RNT_AGENT_KEY_66_CHAR }}
+          GH_TOKEN_IN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # Kunci API wallet hanya untuk run_cycle.py: dipindah ke variabel shell
+          # (tidak di-export) supaya git dan script lain tidak bisa membacanya.
+          agent_key="${AGENT_KEY_IN:-}"
+          unset AGENT_KEY_IN
+          # Token GitHub hanya untuk dispatch watcher pengganti di akhir job.
+          gh_token="${GH_TOKEN_IN:-}"
+          unset GH_TOKEN_IN
+          chain=0
+          INTERVAL=600
+          # Siklus terakhir harus MULAI cukup awal supaya selesai (timeout 1500 s +
+          # 30 s kill + ~2 menit simpan state) sebelum timeout-minutes 350 job;
+          # 10 menit disisakan untuk checkout/pip. Kalau job dibunuh di tengah
+          # siklus, state siklus itu hilang (audit 2026-10-05 F6).
+          CYCLE_BUDGET=$(( 1500 + 30 + 120 ))
+          DEADLINE=$(( $(date +%s) + 340*60 - CYCLE_BUDGET ))
+          worst=0
+          n=0
+          echo "[watch] mode=${MODE} interval=${INTERVAL}s"
+          while :; do
+            n=$((n + 1))
+            echo "::group::siklus #${n} — $(date -u '+%Y-%m-%d %H:%M:%SZ')"
+            bash tools/refresh_state.sh || true
+            # Semua perintah di loop ini harus `|| rc=$?` atau `|| ...`: GitHub
+            # menjalankan step dengan bash -e, dan exit non-nol tanpa itu
+            # mengakhiri job SEBELUM state disimpan (insiden MEX 30 Sep 2026).
+            rc=0
+            RNT_AGENT_KEY="$agent_key" timeout -k 30 1500 python run_cycle.py || rc=$?
+            if [ "$rc" -gt "$worst" ]; then worst=$rc; fi
+            if ! bash tools/save_state.sh "state: $(date -u +%Y-%m-%dT%H:%MZ)"; then
+              echo "[watch] save_state gagal"
+              worst=1
+            fi
+            echo "::endgroup::"
+            if [ "${MODE}" = "once" ]; then break; fi
+            # Tidur sampai cek berikutnya: normalnya INTERVAL, tapi bangun TEPAT
+            # 2m10s setelah close candle 4h berikutnya (00/04/08/12/16/20 UTC;
+            # 00 UTC = candle harian = 07:00 WIB; slot lain tidak ada kerja, tidak apa). Jeda 2 menit = run_after_minutes
+            # di config.yaml, +10 detik cadangan. Tanpa ini sinyal bisa telat
+            # sampai 10 menit (5 Okt: cek 07:00:16 terlalu cepat, berikutnya 07:10).
+            now=$(date +%s)
+            due=$(( now / 14400 * 14400 + 130 ))
+            if [ "$due" -le "$now" ]; then due=$(( due + 14400 )); fi
+            nap=$INTERVAL
+            if [ $(( due - now )) -lt "$nap" ]; then nap=$(( due - now )); fi
+            if [ $(( now + nap )) -ge "$DEADLINE" ]; then
+              echo "[watch] anggaran waktu habis"
+              chain=1
+              break
+            fi
+            echo "[watch] cek berikutnya dalam ${nap}s"
+            sleep "$nap"
+          done
+          if [ "${MODE}" = "loop" ] && [ "$chain" = "1" ]; then
+            # Gagal dispatch tidak menggagalkan job: cron + watchdog tetap cadangan.
+            if GH_TOKEN="$gh_token" gh workflow run bot.yml --repo "$GITHUB_REPOSITORY" --ref "${GITHUB_REF_NAME:-main}" -f mode=loop; then
+              echo "[watch] watcher pengganti dinyalakan (antre, mulai begitu job ini selesai)"
+            else
+              echo "::warning::gagal menyalakan watcher pengganti; menunggu cron/watchdog"
+            fi
+          fi
+          echo "[watch] selesai setelah ${n} siklus (exit ${worst})"
+          exit "$worst"

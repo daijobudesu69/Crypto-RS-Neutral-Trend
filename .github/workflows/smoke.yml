@@ -1,0 +1,36 @@
+name: RNT smoke test
+
+# Manual saja. Cek Telegram, Google Sheets (isi tab kosong dari CSV), kunci API
+# wallet HYPE (hanya baca, tanpa order), dan data HYPE. Hasil ke Telegram.
+#   gh workflow run smoke.yml --repo daijobudesu69/Crypto-RS-Neutral-Trend
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Smoke test
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GSHEET_WEBHOOK_URL: ${{ secrets.GSHEET_WEBHOOK_URL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GSHEET_SPREADSHEET_ID: ${{ secrets.GSHEET_SPREADSHEET_ID }}
+          KEY_RNT: ${{ secrets.HYPE_RNT_AGENT_KEY_66_CHAR }}
+        run: |
+          if [ -n "${KEY_RNT:-}" ]; then
+            export RNT_AGENT_KEY="$KEY_RNT"
+          fi
+          unset KEY_RNT
+          python tools/smoke_test.py

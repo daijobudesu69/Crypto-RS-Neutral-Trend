@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  RNT (RS-Neutral & Trend) v1.1 — forward test di HYPE
+#
+#  Bagian `strategy` dan `rules` SAMA dengan research/SPEC_v1.1.md (versi setelah
+#  audit 2026-10-09). Mengubahnya membuat forward test tidak lagi sebanding dengan
+#  backtest. Kalau diubah, catat tanggal dan alasannya di CHANGELOG.md.
+#
+#  Mode (off/paper/live/manage/flatten) TIDAK diatur di sini, tetapi di
+#  control/bot.yaml (dibaca setiap siklus, diubah lewat workflow control.yml).
+# ─────────────────────────────────────────────────────────────────────────────
+
+capital_usdc: 200            # modal awal buku paper (riset: 200 lebih baik dari 120)
+# Hari pertama forward test (UTC). Sebelum ini bot hanya mencatat run, tanpa trading,
+# supaya entry pertama tepat setelah close harian 00:00 UTC (07:00 WIB).
+forward_start: "2026-10-10"
+
+universe:
+  # Semua perp HYPE yang belum delist, kecuali stablecoin/emas. Semua koin ikut
+  # cross-section persentil (yang aktif hari itu); yang diperdagangkan hanya top-20
+  # (RS) dan top-5 (Trend) menurut likuiditas.
+  exclude: [USDC, USDT, USDE, USDH, FDUSD, DAI, PYUSD, USD1, PAXG, XAUT, USTC]
+  # Riwayat candle 1d per koin. Butuh >= 200 hari aktif (umur) + 60 hari riwayat
+  # bobot untuk penskalaan vol + 100 hari channel. 450 hari = cukup, dan rantai
+  # hysteresis/EWM sudah konvergen dengan backtest (tools/parity_check.py).
+  fetch_days: 450
+
+strategy:                    # = research/SPEC_v1.1.md
+  vol_span: 30
+  min_hist: 200              # umur = hari dengan volume > 0 di HYPE (age_mode real)
+  liq_win: 30
+  rs_top: 20
+  rs_lookbacks: [7, 14, 28, 56]
+  rs_in: 4
+  rs_out: 8
+  tr_top: 5
+  tr_channels: [20, 55, 100]
+  tr_coin_vol: 0.40
+  sleeve_vol: 0.20
+  vt_lookback: 60
+  vt_cap: 2.0
+  gross_cap: 2.5
+  age_mode: real
+  pct_scope: traded
+  # Buku bayangan (paper saja, TIDAK diadopsi): mesin 1 dimatikan saat return BTC
+  # 90 hari <= 0. Dilacak karena audit menemukan alpha mesin 1 pro-siklus.
+  regime_symbol: BTC
+  regime_lookback: 90
+  # Siklus harian setelah candle 1d close (00:00 UTC = 07:00 WIB); jeda kecil
+  # supaya candle terakhir sudah final di API.
+  run_after_minutes: 2
+
+rules:                       # aturan eksekusi = research/code/account.py
+  min_order_usdc: 10
+  band: 0.40                 # posisi searah tidak disentuh selama |target - posisi| <= max(10, 40% target)
+
+costs:
+  # Backtest: 0,07% per sisi. Paper: fee taker HYPE base tier + slippage = sama.
+  taker_fee: 0.00045
+  paper_slippage: 0.00025
+
+alarms:                      # research/audit_response/AUDIT_RESPONSE.md §4
+  yellow_dd_pct: 20          # kuning: ukuran live dipotong separuh
+  red_dd_pct: 25             # merah: live hanya boleh mengurangi posisi (seperti manage)
+  cusum_k_annual: 0.314      # CUSUM: referensi = separuh return backtest per tahun
+  cusum_h: 0.45              # ambang (12 bln: 9% alarm palsu, 72% menangkap edge = 0)
+  yellow_scale: 0.5
+  tracking_max_pct: 3        # teknis bulanan: |return live - return paper| > 3 poin
+
+hype:
+  info_url: https://api.hyperliquid.xyz/info
+  weight_per_minute: 1000    # batas resmi 1200/menit per IP; disisakan ruang
+
+execution:
+  # Hanya dipakai di mode live (control/bot.yaml: mode: live). Diisi user sendiri.
+  # Alamat PUBLIK aman di repo. Kunci privat API wallet disimpan sebagai GitHub
+  # secret dengan nama di agent_secret (nama saja, bukan isinya).
+  #   master_address  = akun utama yang mendaftarkan API wallet
+  #   account_address = SUBACCOUNT khusus RNT. Jangan akun RMF/MEX: posisi yang
+  #                     bukan dibuka RNT membuat live berhenti (Halt).
+  #   agent_address   = alamat API wallet; bot menolak jalan kalau kunci di secret
+  #                     tidak menghasilkan alamat ini
+  master_address: ""
+  account_address: ""
+  agent_address: ""
+  agent_secret: HYPE_RNT_AGENT_KEY_66_CHAR
+  agent_valid_until: ""      # YYYY-MM-DD (API wallet HYPE maks 180 hari)
+  margin_mode: cross         # long + short dalam satu akun: wajib cross
+  # Leverage per koin di HYPE (bukan eksposur). Eksposur diatur ukuran order:
+  # gross rata-rata ±0,9x, maks 2,5x. Margin awal = notional / leverage, jadi 3x
+  # cukup untuk gross 2,5x. Koin dengan maxLeverage lebih kecil memakai maksimumnya.
+  leverage: 3
+  ioc_slippage: 0.01         # order market = IOC limit 1% menembus mid
+  max_live_attempts_per_day: 6
+  # API wallet bot lain yang TIDAK boleh terdaftar untuk akun RNT (MEX.bot, RMF.bot).
+  blocked_agents: ["0x329e707a50b77bd851d220d53efab0491960e797", "0x855127eb9d86d715aae469c399c26d31ef85627c"]

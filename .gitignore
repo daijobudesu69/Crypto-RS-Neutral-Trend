@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.env
+*.log
+# salinan origin:control/bot.yaml yang ditulis tools/refresh_state.sh
+.rnt_control_origin.yaml
+.rnt_control_origin.yaml.tmp
+state/.tmp_*
+# data riset berat: tetap di PC lokal (research/data dari data lake + unduhan koin delist)
+research/data/
+research/results/cache/
+research/results/*.log
+# paket data sementara audit (aman dihapus, lihat research/audit_2026-10-09/README.md)
+research/audit_2026-10-09/_*
