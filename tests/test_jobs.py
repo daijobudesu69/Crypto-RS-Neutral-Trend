@@ -39,6 +39,9 @@ def test_first_day_paper(state_dir, cfg, cand):
     assert p["paper"]["positions"] and p["paper"]["fees"] > 0
     assert len(store.read("equity")) == 1 and store.read("targets") and store.read("orders")
     assert any("RNT forward test" in m["text"] for m in ctx.outbox.sent + ctx.outbox.items)
+    txt = next(m["text"] for m in ctx.outbox.sent + ctx.outbox.items if "RNT forward test" in m["text"])
+    assert "Paper" in txt and "PnL:" in txt and "Relative Strength Report" in txt and "Trend Report" in txt
+    print(notify.plain(txt))
     # sekali per hari
     assert jobs.run_daily(ctx_for(cfg, info, DAY1 + dt.timedelta(minutes=10))) is None
 
@@ -111,3 +114,18 @@ def test_run_cycle_main(state_dir, cfg, cand, monkeypatch):
     monkeypatch.setattr(control, "read", lambda paths=None: control.Control(mode="paper"))
     rc = run_cycle.main(now=DAY1, info=FakeInfo(upto(cand, "2026-10-09")))
     assert rc == 0 and store.read("runs")[-1]["daily"] in ("1", "True")
+
+
+def test_agent_expiry_warns_only_on_schedule(state_dir, cfg):
+    import run_cycle
+    ex = dataclasses.replace(cfg.execution, agent_valid_until="2026-12-01")
+    c2 = dataclasses.replace(cfg, execution=ex)
+    sent = []
+    for left in range(20, -3, -1):
+        now = dt.datetime(2026, 12, 1, 6, tzinfo=dt.timezone.utc) - dt.timedelta(days=left)
+        ctx = ctx_for(c2, None, now)
+        store.save_json("alerts.json", {k: v for k, v in (store.load_json("alerts.json", {}) or {}).items() if k != "account_check_day"})
+        run_cycle._account_checks(ctx)
+        sent += [(left, m["text"]) for m in ctx.outbox.items]
+    assert [x[0] for x in sent] == [14, 7, 3, 2, 1, 0, -1]
+    assert all(len(t.splitlines()) == 1 for _, t in sent)

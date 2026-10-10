@@ -179,8 +179,8 @@ def run_daily(ctx: Ctx) -> dict | None:
         # Urutan: order tercatat -> pesan dikirim SEKARANG -> baru log & cek bulanan.
         ctx.outbox.add(daily_message(ctx, view, out, p, mids))
         ctx.outbox.flush()
-    elif out["live"] is not None:
-        ctx.outbox.add(_live_message(out["live"], ctx))
+    if out["live"] is not None:
+        ctx.outbox.add(_live_message(out["live"], ctx, _perf(ctx, p, out)[0]))
     if p.get("pending_record"):
         _record_day(ctx, p, view, out)
         store.save_json("paper.json", p)
@@ -445,54 +445,67 @@ def _fmt_side(b: dict, mids: dict, sign: int) -> str:
     return " ".join(f"{notify.esc(c)} {abs(w) * 100:.0f}%" for c, w in items) or "-"
 
 
+def _perf(ctx: Ctx, p: dict, out: dict) -> tuple[float, float]:
+    """(PnL %, DD %) sejak awal. Live memakai ekuitas live kalau sudah punya riwayat; selain itu paper."""
+    pb = p["paper"]
+    if ctx.ctrl.live:
+        hist = _equity_history("live_equity")
+        last = (store.load_json("live.json") or {}).get("last_equity")
+        if len(hist) and last:
+            peak = max(float(hist.max()), float(last))
+            return (float(last) / float(hist.iloc[0]) - 1) * 100, abs(min(0.0, (float(last) / peak - 1) * 100))
+    eq = out["paper"]["paper"]["equity"]
+    peak = float(pb.get("peak_equity", eq))
+    start = float(pb.get("start_capital", ctx.cfg.capital_usdc))
+    return (eq / start - 1) * 100, abs(min(0.0, (eq / peak - 1) * 100)) if peak else 0.0
+
+
+def _coin_pnl(b: dict, coin: str, mids: dict) -> float:
+    pos = b["positions"][coin]
+    cost = float(pos.get("cost") or 0.0)
+    return (pos["qty"] * bk.px_of(b, coin, mids) - cost) / abs(cost) * 100 if cost else 0.0
+
+
+def _sleeve_lines(b: dict, sleeve: dict, mids: dict) -> list[str]:
+    """Posisi terbuka milik satu mesin (koin yang ada di targetnya hari ini), long dulu lalu short."""
+    held = [c for c in b["positions"] if c in sleeve]
+    out = []
+    for icon, name, sign in (("🟢", "Long", 1), ("🔴", "Short", -1)):
+        cs = sorted((c for c in held if b["positions"][c]["qty"] * sign > 0),
+                    key=lambda c: -abs(bk.notional(b, mids)[c]))
+        if cs:
+            out.append(f"  {icon} Open {name} Position: "
+                       + " ".join(f"{notify.esc(c)} ({_coin_pnl(b, c, mids):+.1f}%)" for c in cs))
+    return out or ["No Open Position"]
+
+
 def daily_message(ctx: Ctx, view: stg.View, out: dict, p: dict, mids: dict) -> str:
     cfg = ctx.cfg
     pb = p["paper"]
-    pr = out["paper"]["paper"]
-    peak = float(pb.get("peak_equity", pr["equity"]))
-    dd = (pr["equity"] / peak - 1) * 100 if peak else 0.0
-    ret = (pr["equity"] / float(pb.get("start_capital", cfg.capital_usdc)) - 1) * 100
-    rf = out["paper"].get("rf") or {}
-    a = out.get("alarm")
+    pnl, dd = _perf(ctx, p, out)
     t = pd.Timestamp(ctx.now).tz_convert("UTC").strftime("%Y-%m-%d %H:%M")
     day_n = ""
     if cfg.forward_start:
         day_n = f" · hari ke-{(pd.Timestamp(view.exec_day) - pd.Timestamp(cfg.forward_start)).days + 1}"
-    icon = {"ok": "✅", "kuning": "🟡", "merah": "🔴"}.get(a.level if a else "ok", "")
-    fills = pr["fills"]
     lines = [
-        f"📊 <b>RNT forward test{day_n}</b>",
+        f"📊 <b>RNT forward test · {'Live' if ctx.ctrl.live else 'Paper'}{day_n}</b>",
         f"<code>{t} UTC · candle {view.last_close_day} · telat {out['delay_min']:.0f} menit</code>",
         "",
-        f"Mode <b>{ctx.ctrl.mode}</b> · alarm {icon} <b>{(a.level if a else 'ok').upper()}</b>"
-        + (f" (DD {a.dd_pct:.1f}%, CUSUM {a.cusum:.2f}/{cfg.alarms.cusum_h:g})" if a else ""),
-        f"BTC 90 hari: {'naik' if view.btc_up90 else 'turun'} · koin aktif {view.n_traded}",
-        f"Target: gross {view.gross:.2f}× net {view.net:+.2f}× · skala RS {view.k_rs:.2f} Trend {view.k_tr:.2f}",
+        f"📈 PnL: {pnl:+.1f}% · DD {dd:.1f}%",
         "",
-        f"<b>Paper v1.1</b>: {notify.usd(pr['equity'])} USDC ({ret:+.1f}%) · DD {dd:.1f}%",
-        f"  gross {pr['gross'] / max(pr['equity'], 1e-9):.2f}× net {pr['net'] / max(pr['equity'], 1e-9):+.2f}×"
-        f" · funding hari ini {pr['funding']:+.3f}",
-        f"  🟢 long: {_fmt_side(pb, mids, +1)}",
-        f"  🔴 short: {_fmt_side(pb, mids, -1)}",
-        f"  order: {len(fills)}" + (" — " + ", ".join(
-            f"{f['side'][0]} {notify.esc(f['coin'])} {f['notional']:.0f}" for f in fills[:12]) if fills else ""),
+        "<b>Relative Strength Report</b>",
+        *_sleeve_lines(pb, view.w_rs, mids),
+        "",
+        "<b>Trend Report</b>",
+        *_sleeve_lines(pb, view.w_tr, mids),
     ]
-    closed = [f["closed"] for f in fills if f.get("closed")]
-    if closed:
-        lines.append("  tutup: " + ", ".join(f"{notify.esc(c['coin'])} {c['pnl']:+.2f}" for c in closed))
-    if rf:
-        r0 = float((p.get("rf") or {}).get("start_capital", cfg.capital_usdc))
-        lines.append(f"<i>Bayangan filter rezim: {notify.usd(rf['equity'])} ({(rf['equity'] / r0 - 1) * 100:+.1f}%)</i>")
-    if out.get("live") is not None:
-        lines += ["", _live_message(out["live"], ctx, short=True)]
     return "\n".join(lines)
 
 
-def _live_message(lv: dict, ctx: Ctx, short: bool = False) -> str:
-    head = "<b>Live</b>" if short else f"⚡ <b>RNT live ({notify.esc(lv.get('mode'))})</b>"
+def _live_message(lv: dict, ctx: Ctx, pnl: float | None = None) -> str:
     eq = lv.get("equity_after", lv.get("equity_before"))
-    lines = [f"{head}: {notify.usd(eq)} USDC · order {len(lv.get('orders', []))}"
-             + (f" · alarm {lv.get('alarm')}" if lv.get("alarm") not in (None, "ok") else "")]
+    lines = [f"⚡ <b>RNT live</b>: {notify.usd(eq)} USDC"
+             + (f" ({pnl:+.1f}%)" if pnl is not None else "") + f" · order {len(lv.get('orders', []))}"]
     for o in lv.get("orders", [])[:15]:
         lines.append(f"  {'✅' if o['status'] == 'filled' else '❌'} {o['side']} {notify.esc(o['coin'])} "
                      f"{o['qty']:g} @ {o['px']:g} ({notify.esc(o['kind'])})")

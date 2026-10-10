@@ -20,7 +20,7 @@ import traceback
 from rntbot import config, control, hype, jobs, live, notify, store
 
 QUIET_IDLE_MIN = 60     # baris "idle" di runs.csv paling sering 1x per jam
-AGENT_WARN_DAYS = 14
+AGENT_WARN_AT = (14, 7, 3, 2, 1, 0)
 
 
 def main(now: dt.datetime | None = None, info=None) -> int:
@@ -81,11 +81,12 @@ def _account_checks(ctx) -> None:
     store.save_json("alerts.json", seen)
     if ex.agent_valid_until:
         left = (dt.date.fromisoformat(ex.agent_valid_until) - now.date()).days
-        if left <= AGENT_WARN_DAYS:
-            ctx.outbox.add(f"⏳ <b>RNT — API wallet {'SUDAH kedaluwarsa' if left < 0 else f'kedaluwarsa {left} hari lagi'}</b>"
-                           f" ({ex.agent_valid_until})\nLive berhenti setelah tanggal itu. Buat API wallet baru di HYPE, "
-                           f"ganti secret {notify.esc(ex.agent_secret)}, perbarui agent_address + "
-                           "agent_valid_until di config.yaml.")
+        if left in AGENT_WARN_AT or left < 0 and seen.get("agent_expired_sent") != ex.agent_valid_until:
+            ctx.outbox.add(f"⏳ <b>RNT — API wallet {'sudah kedaluwarsa' if left < 0 else f'kedaluwarsa {left} hari lagi' if left else 'kedaluwarsa hari ini'}</b>"
+                           f" ({ex.agent_valid_until})")
+            if left < 0:
+                seen["agent_expired_sent"] = ex.agent_valid_until
+                store.save_json("alerts.json", seen)
     if ex.blocked_agents and ex.master_address and ctx.ctrl.live:
         try:
             agents = ctx.info.post({"type": "extraAgents", "user": ex.master_address}, weight=2) or []
@@ -96,9 +97,10 @@ def _account_checks(ctx) -> None:
         bad = [a for a in agents if str(a.get("address", "")).lower() in blocked]
         if bad:
             names = ", ".join(f"{a.get('name', '-')} ({str(a.get('address'))[:10]}…)" for a in bad)
-            ctx.outbox.add(f"ℹ️ <b>RNT — API wallet bot lain terdaftar di akun utama</b>\n{notify.esc(names)}\n"
-                           "Wajar kalau MEX/RMF memakai akun utama yang sama. Pastikan subaccount RNT tidak "
-                           "dipakai bot lain: RNT berhenti kalau ada posisi yang bukan miliknya.")
+            if seen.get("blocked_agents_notified") != names:
+                ctx.outbox.add(f"ℹ️ <b>RNT — API wallet bot lain terdaftar di akun utama</b>: {notify.esc(names)}")
+                seen["blocked_agents_notified"] = names
+                store.save_json("alerts.json", seen)
 
 
 def _alert_once(outbox, now, key, text, hours=6):
