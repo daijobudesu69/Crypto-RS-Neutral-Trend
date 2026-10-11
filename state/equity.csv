@@ -1,2 +1,3 @@
 exec_day,time_utc,paper_equity,paper_gross,paper_net,paper_long,paper_short,paper_peak,paper_dd_pct,rf_equity,live_equity,live_gross,live_net,live_positions,alarm_level,alarm_book,dd_pct,cusum,k_rs,k_tr,btc_close,btc_up90,target_gross,target_net,n_traded,delay_min
 2026-10-10,2026-10-10T00:02:11+00:00,199.90662322,133.39413,7.926344,6,6,200.0,-0.04668839,199.90662322,,,,,ok,paper,0.0,0.0,0.60958245,0.77499501,82580.0,1,0.65683989,0.04725744,177,2.2
+2026-10-11,2026-10-11T00:02:11+00:00,201.85898827,147.105193,19.938203,7,6,201.86602616,-0.00348642,201.85898827,,,,,ok,paper,0.0,0.0,0.60985429,0.77511653,82946.0,1,0.66468859,0.05972058,177,2.2
