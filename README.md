@@ -2,6 +2,7 @@
 
 > **Mulai di sini:** [docs/SETUP.md](docs/SETUP.md) (GitHub, Telegram, Sheets, HYPE) dan
 > [research/SPEC_v1.1.md](research/SPEC_v1.1.md) (aturan strategi lengkap).
+> Laporan lengkap hasil backtest + grafik: [research/PROJECT CRYPTO - RNT.md](research/PROJECT%20CRYPTO%20-%20RNT.md).
 
 Forward test di **HYPE (Hyperliquid)**, modal **200 USDC**, sekali sehari setelah close
 harian 00:00 UTC (**07:00 WIB**). Hanya butuh candle harian HYPE: **tanpa VPS, tanpa OI,
