@@ -19,7 +19,7 @@ Tiga hal yang mengubah gambaran:
 2. **Klaim saya bahwa Mesin 1 "bekerja di pasar turun" salah** (#13 dan Baru-1). Di IS, Mesin 1 rugi −7%/tahun saat BTC 90 hari turun.
 3. **Funding koin mati bukan biaya, melainkan pemasukan** (#10, dibantah). Dengan data funding riil dari arsip Binance untuk 70 koin, strategi **menerima** +5,4%/tahun. Akun IS jadi 3.360 USD, bukan 1.983–2.314.
 
-![v1.0 vs v1.1](../charts/oos_v10_vs_v11.png)
+![v1.0 vs v1.1](../charts/v11_oos_equity.png)
 
 ---
 

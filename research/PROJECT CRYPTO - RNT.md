@@ -738,7 +738,7 @@ Dicek 2026-10-11.
 | Tes | 47 lulus lokal; workflow `tests` di GitHub lulus (push `82af22c` dan cron harian) |
 | Secret GitHub | 4 terisi (Telegram ×2, Google Sheets ×2); kunci HYPE belum |
 | **Hanya lokal (gitignored, disengaja)** | `research/data/` **34 MB** (candle koin delist HYPE + perp Binance di luar data lake + funding riil), `research/results/cache/` **218 MB** (panel pickle), paket sementara audit `research/audit_2026-10-09/_*` (±20 MB; aman dihapus). Data lake sumber ada di luar repo (`C:\Crypto data\backtest data and more`). Akibatnya, **tes paritas data nyata dan `report_v11_data.py` hanya bisa jalan di PC ini**; `report_v11_charts.py` dan tes biasa jalan di mana saja |
-| Ketidaksesuaian yang ditemukan | (1) Grafik lama `charts/oos_equity_200usd.png`, `oos_engines.png`, `oos_monthly.png`, `is_equity_200usd.png`, `oos_v10_vs_v11.png` masih berlabel **"DUET"** dan memuat angka v1.0 (522 USD); laporan ini tidak lagi memakainya (diganti `charts/v11_*.png`), tetapi berkasnya masih ada. (2) `research/audit_2026-10-09/README.md` masih menyebut "DUET". (3) Catatan memori sesi lama menyebut revisi pesan Telegram "belum diterapkan", padahal sudah masuk di commit `82af22c` |
+| Ketidaksesuaian yang ditemukan | (1) Grafik lama berlabel **"DUET"** dan berangka v1.0 (`oos_equity_200usd.png`, `oos_engines.png`, `oos_monthly.png`, `is_equity_200usd.png`, `oos_v10_vs_v11.png`) **sudah dihapus** dan diganti `charts/v11_*.png`. (2) `research/audit_2026-10-09/README.md` masih menyebut "DUET". (3) Catatan memori sesi lama menyebut revisi pesan Telegram "belum diterapkan", padahal sudah masuk di commit `82af22c` |
 | Perubahan baru dari sesi ini (belum di-commit) | `research/PROJECT CRYPTO - RNT.md` (laporan ini), `research/README.md`, `CHANGELOG.md`, `research/code/report_v11_data.py`, `research/code/report_v11_charts.py`, `research/charts/v11_*.png` (16 file), `research/results/v11_*.csv`, `v11_report_stats.json` |
 
 ---
@@ -784,7 +784,7 @@ Crypto-RS-Neutral & Trend/
                                  fetch_delisted.py, report_data.py (v1.0), report_v11_data.py, report_v11_charts.py
     results/                     tabel hasil: stage*_is.csv, oos_*.csv, *.json (v1.0);
                                  v11_series_{oos,is}.csv, v11_is_trips.csv, v11_coin_pnl_{oos,is}.csv, v11_report_stats.json
-    charts/                      v11_*.png (laporan ini); grafik lama berlabel DUET/v1.0: oos_*.png, is_equity_200usd.png
+    charts/                      v11_*.png (laporan ini)
     data/ (lokal saja)           56 perp HYPE delist, 579 perp Binance di luar data lake, funding riil 70 koin mati
 ```
 

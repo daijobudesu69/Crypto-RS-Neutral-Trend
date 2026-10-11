@@ -13,7 +13,7 @@ mengimpor `research/code` dengan panel sintetis).
 | [audit_response/AUDIT_RESPONSE.md](audit_response/AUDIT_RESPONSE.md) | respons audit dengan bukti data (r01–r07) |
 | `code/` | pipeline riset: `lab.py` (loader, engine, metrik), `strat.py`, `rnt.py` (strategi), `account.py` (simulasi akun 200 USD), `explore1-6.py` (tahap IS), `oos.py`, `survivorship_is.py`, `fetch_delisted.py`, `report_v11_data.py` (seri harian v1.1, butuh data lake), `report_v11_charts.py` (grafik dan statistik laporan, hanya butuh CSV) |
 | `results/` | tabel hasil (CSV/JSON). `results/cache/` (panel pickle, ±218 MB) tidak ikut repo |
-| `charts/` | `v11_*.png` = grafik laporan v1.1. Grafik lama (`oos_*.png`, `is_equity_200usd.png`) masih berlabel DUET dan berangka v1.0 |
+| `charts/` | `v11_*.png` = grafik laporan v1.1 (grafik lama berlabel DUET/v1.0 sudah dihapus) |
 | `data/` (lokal saja) | candle koin delist HYPE (56) dan perp Binance di luar data lake (579), funding riil 70 koin mati |
 
 Hasil utama v1.1 (setelah audit):
