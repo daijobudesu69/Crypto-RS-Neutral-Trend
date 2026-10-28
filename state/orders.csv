@@ -93,3 +93,5 @@ time_utc,book,exec_day,coin,side,kind,qty,px,mid,notional,fee,reduce_only,reason
 2026-10-27T04:47:29+00:00,rf,2026-10-27,HYPE,BUY,close,0.13,77.495369,77.476,10.07439797,0.00453348,,keluar dari buku,paper
 2026-10-27T04:47:29+00:00,rf,2026-10-27,WLD,SELL,close,20.1,0.43580102,0.43591,8.75960055,0.00394182,,keluar dari buku,paper
 2026-10-27T04:47:29+00:00,rf,2026-10-27,ZRO,SELL,close,6.4,1.60459875,1.605,10.269432,0.00462124,,keluar dari buku,paper
+2026-10-28T00:02:11+00:00,paper,2026-10-28,XRP,BUY,close,8.0,1.32938226,1.32905,10.6350581,0.00478578,,keluar dari buku,paper
+2026-10-28T00:02:11+00:00,rf,2026-10-28,XRP,BUY,close,8.0,1.32938226,1.32905,10.6350581,0.00478578,,keluar dari buku,paper
