@@ -193,3 +193,4 @@ time_utc,book,exec_day,coin,side,kind,qty,px,mid,notional,fee,reduce_only,reason
 2026-11-22T00:02:10+00:00,paper,2026-11-22,LIT,SELL,close,4.0,2.33186689,2.33245,9.32746755,0.00419736,,keluar dari buku,paper
 2026-11-22T00:02:10+00:00,paper,2026-11-22,XMR,BUY,open,0.023,493.7934175,493.67,11.3572486,0.00511076,,masuk,paper
 2026-11-22T00:02:10+00:00,paper,2026-11-22,XRP,BUY,close,9.0,0.93135778,0.931125,8.38222003,0.003772,,keluar dari buku,paper
+2026-11-23T00:02:11+00:00,paper,2026-11-23,AAVE,SELL,close,0.09,97.69906913,97.7235,8.79291622,0.00395681,,keluar dari buku,paper
