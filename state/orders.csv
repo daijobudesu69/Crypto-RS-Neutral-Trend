@@ -198,3 +198,4 @@ time_utc,book,exec_day,coin,side,kind,qty,px,mid,notional,fee,reduce_only,reason
 2026-11-25T00:02:10+00:00,paper,2026-11-25,ZRO,SELL,close,8.7,1.04643833,1.0467,9.10401343,0.00409681,,keluar dari buku,paper
 2026-11-26T00:02:11+00:00,paper,2026-11-26,UNI,SELL,close,3.0,4.74011468,4.7413,14.22034402,0.00639915,,keluar dari buku,paper
 2026-11-26T00:02:11+00:00,paper,2026-11-26,XPL,BUY,open,298.0,0.04746286,0.047451,14.1439331,0.00636477,,masuk,paper
+2026-11-27T00:02:10+00:00,paper,2026-11-27,HYPE,SELL,close,0.16,62.52986362,62.5455,10.00477818,0.00450215,,keluar dari buku,paper
